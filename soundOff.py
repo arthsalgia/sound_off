@@ -7,7 +7,7 @@ import numpy
 import geocoder
 from datetime import datetime
 import influxdb_client, time
-from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 
 #-----------------
@@ -16,6 +16,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 token = os.environ.get("INFLUXDB_TOKEN")
 org = "salgia"
 url = "http://localhost:8086"
+bucket="sound_off"
 measurement = "sound"
 src = "src"
 lat = "lat"
@@ -49,8 +50,11 @@ myLat = None
 myLong = None
 audioStream = None  # the audio stream
 influxDb = None # the connection object to influxDb
-LOG_TO_FILE = True  # controls whether we log data to file
-RECORD_TO_INFLUXDB = False # controls whether to write to influxdb
+LOG_TO_FILE = False  # controls whether we log data to file
+RECORD_TO_INFLUXDB = True # controls whether to write to influxdb
+token = os.environ.get("INFLUXDB_TOKEN")
+org = "salgia"
+url = "http://localhost:8086"
 
 #---------------------
 # initialize resources
@@ -87,7 +91,9 @@ def initialize():
     
     if RECORD_TO_INFLUXDB:
         #TODO: create the influx client object
-        pass
+        global influxDb
+        influxDb = influxdb_client.InfluxDBClient(url=url, token=token, org=org)
+
 
 
 #------------------------------------
@@ -100,19 +106,23 @@ def record_sound(dba):
     dt = datetime.now()
     unix_time = round(dt.timestamp())  # round off to seconds
     unix_time = str(unix_time)
-    dba = str(dba)
+    #dba = str(dba)
 
     # either write the data to a flat file by calling the record_to_file()
     # or to influxdb by calling that func or any other function
-    
+
     if RECORD_TO_INFLUXDB:
-        #TODO: write to influx db using python client api
-        pass
+        #write to influx db using python client api
+        write_api = influxDb.write_api(write_options=SYNCHRONOUS)
+        p = influxdb_client.Point(measurement).tag(src, deviceName).tag(lat, myLat).tag(lng, myLong).field(dbA, dba)
+        write_api.write(bucket=bucket, org=org, record=p)
+
+
 
     if LOG_TO_FILE:
         data = measurement + "," + src + "=" + deviceName + "," + \
             lat + "=" + myLat + "," + lng + "=" + myLong + \
-            " " + dbA + "=" + dba + " " + unix_time + "\n"
+            " " + dbA + "=" + str(dba) + " " + unix_time + "\n"
         logFile.writelines(data)
         logFile.flush()
 
